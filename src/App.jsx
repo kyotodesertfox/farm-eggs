@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import OurProcess from './assets/our_process/App';
 import HowItWorks from './assets/how_it_works/App';
@@ -8,6 +8,10 @@ import Bridge from './assets/bridge/App';
 function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
 
   // Helper to change tabs and close menu simultaneously
   const navigate = (tab) => {
