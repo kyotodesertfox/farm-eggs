@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useAccount, useBalance, useConfig } from 'wagmi';
-import { useWeb3Modal } from '@web3modal/wagmi/react';
+import { useAccount, useBalance } from 'wagmi';
+import { useAppKit } from '@reown/appkit/react'; // 1. UPDATED IMPORT
 import { formatUnits } from 'viem';
 
-// Ensure this matches your token exactly
+// TODO: Replace with your actual $EGG token address
 const EGG_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export default function Trade({ setActiveTab }) {
-    const { isConnected, address, chain } = useAccount();
-    const { open } = useWeb3Modal();
-    const config = useConfig(); // Connects the hook directly to your App.jsx config
+    const { isConnected, address } = useAccount();
+    const { open } = useAppKit(); // 2. UPDATED HOOK
 
     const [amount, setAmount] = useState('');
     const [targetToken, setTargetToken] = useState('ETH');
@@ -18,60 +17,38 @@ export default function Trade({ setActiveTab }) {
 
     useEffect(() => { setMounted(true); }, []);
 
-    // 1. Fetch Native ETH Balance (Taiko)
+    // Fetch Native ETH Balance (Taiko)
     const { data: ethBalance } = useBalance({
         address,
         chainId: 167000,
-        config,
     });
 
-    // 2. Fetch $EGG Token Balance (Taiko)
+    // Fetch $EGG Token Balance (Taiko)
     const { data: eggBalance } = useBalance({
-        address: address,
-        // Only fetch if it's NOT the zero address
-        token: (EGG_TOKEN_ADDRESS && EGG_TOKEN_ADDRESS !== '0x0000000000000000000000000000000000000000')
-        ? EGG_TOKEN_ADDRESS
-        : undefined,
+        address,
+        token: EGG_TOKEN_ADDRESS !== '0x0000000000000000000000000000000000000000' ? EGG_TOKEN_ADDRESS : undefined,
         chainId: 167000,
-        query: {
-            // If no token address, disable the query so it doesn't default to ETH
-            enabled: !!address && EGG_TOKEN_ADDRESS !== '0x0000000000000000000000000000000000000000',
-            refetchInterval: 5000,
-        }
     });
 
     const displayBalance = () => {
-        // 1. Initial Guard
-        if (!isConnected || !address) return '0.00';
+        if (!mounted || !isConnected || !address) return '0.00';
 
-        // 2. Identify which balance we are actually looking at
-        // If NOT swapped (isSwapped === false), we want EGG
-        // If Swapped (isSwapped === true), we want ETH
         const currentBalance = isSwapped ? ethBalance : eggBalance;
 
-        // 3. Special Guard for the EGG placeholder
-        // Only return 0.00 if we are actually looking at EGG and the address is missing
+        // Special Guard for the EGG placeholder
         if (!isSwapped && EGG_TOKEN_ADDRESS === '0x0000000000000000000000000000000000000000') {
             return '0.00';
         }
 
-        // 4. Data Arrival Guard
-        if (!currentBalance) return '0.00';
+        if (!currentBalance || !currentBalance.value) return '0.00';
 
-        // 5. Extraction Logic (Handles both .formatted and raw .value)
-        let formattedValue = '0';
-        if (currentBalance.formatted) {
-            formattedValue = currentBalance.formatted;
-        } else if (currentBalance.value) {
-            // Fallback for Wagmi v3 raw data
-            formattedValue = (Number(currentBalance.value) / Math.pow(10, currentBalance.decimals || 18)).toString();
+        try {
+            const formatted = formatUnits(currentBalance.value, currentBalance.decimals);
+            const value = parseFloat(formatted);
+            return value === 0 ? '0.00' : value.toFixed(isSwapped ? 4 : 2);
+        } catch (e) {
+            return '0.00';
         }
-
-        const value = parseFloat(formattedValue);
-
-        // 6. Return formatted string (4 decimals for ETH, 2 for EGG)
-        if (isNaN(value) || value === 0) return '0.00';
-        return value.toFixed(isSwapped ? 4 : 2);
     };
 
     const handleSwapDirection = () => {
@@ -90,7 +67,7 @@ export default function Trade({ setActiveTab }) {
         Egg <span className="text-egg-yolk underline decoration-stone-200">Exchange</span>
         </h2>
         <div className="text-xl md:text-2xl text-stone-700 font-medium leading-relaxed mx-auto max-w-2xl">
-        Access my homestead economy.
+        Access my homestead economy. Secure your position with $EGG or exit back to the marketplace.
         <div className="mt-12">
         <button onClick={() => setActiveTab('bridge')} className="text-egg-yolk font-black text-xl hover:underline">
         Need $ETH →
@@ -107,17 +84,8 @@ export default function Trade({ setActiveTab }) {
             backgroundBlendMode: 'overlay'
         }}
         >
-        {/* Network Status Pill */}
-        {isConnected && (
-            <div className="absolute top-4 right-6 flex items-center gap-2">
-            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${chain?.id === 167000 ? 'bg-egg-yolk shadow-[0_0_8px_#fcd34d]' : 'bg-red-500'}`} />
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
-            {chain?.name || 'Unknown Network'}
-            </span>
-            </div>
-        )}
+        <div className="flex flex-col gap-4">
 
-        <div className="flex flex-col gap-4 mt-6">
         {/* TOP BLOCK (Sell) */}
         <div className="bg-black/40 border border-white/10 p-5 rounded-2xl text-left transition-all">
         <div className="flex justify-between items-center mb-3">
@@ -154,7 +122,7 @@ export default function Trade({ setActiveTab }) {
         className="bg-homestead-header border-2 border-[#D9A06F] p-2 rounded-full text-egg-yolk shadow-xl hover:scale-110 active:rotate-180 transition-all duration-300"
         >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 5v14M19 12l-7 7-7-7"/>
+        <path d="M12 5v14M19 12l-7 7-7-7" />
         </svg>
         </button>
         </div>
@@ -173,6 +141,12 @@ export default function Trade({ setActiveTab }) {
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${targetToken === 'ETH' ? 'bg-egg-yolk text-homestead-header shadow-lg' : 'text-stone-500 hover:text-white'}`}
             >
             ETH
+            </button>
+            <button
+            onClick={() => setTargetToken('TAIKO')}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${targetToken === 'TAIKO' ? 'bg-egg-yolk text-homestead-header shadow-lg' : 'text-stone-500 hover:text-white'}`}
+            >
+            TAIKO
             </button>
             </div>
         ) : (
@@ -203,10 +177,12 @@ export default function Trade({ setActiveTab }) {
 
         <div className="max-w-xl mx-auto mt-16 bg-stone-50 border border-stone-100 p-8 rounded-[2.5rem] text-left">
         <div className="flex gap-5">
-        <div className="bg-egg-yolk/10 text-egg-yolk rounded-full w-10 h-10 flex items-center justify-center font-black border border-egg-yolk/20">!</div>
+        <div className="bg-egg-yolk/10 text-egg-yolk rounded-full w-10 h-10 flex items-center justify-center font-black border border-egg-yolk/20 shadow-sm">!</div>
         <div>
-        <h4 className="text-homestead-header uppercase text-[10px] font-black tracking-widest mb-1">Homestead Protocol</h4>
-        <p className="text-stone-500 text-sm font-bold">Trading $EGG on Taiko Mainnet.</p>
+        <h4 className="text-homestead-header uppercase text-[10px] font-black tracking-[0.2em] mb-2">Homestead Liquidity Protocol</h4>
+        <p className="text-stone-500 text-sm leading-relaxed font-bold">
+        The $EGG economy is a private homestead ecosystem. This interface interacts directly with our automated liquidity pools on the Taiko network.
+        </p>
         </div>
         </div>
         </div>

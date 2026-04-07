@@ -5,10 +5,11 @@ import HowItWorks from './assets/how_it_works/App';
 import Trade from './assets/trade/App';
 import Bridge from './assets/bridge/App';
 
-// 1. Web3Modal / AppKit Imports
-import { createWeb3Modal, defaultWagmiConfig, useWeb3Modal } from '@web3modal/wagmi/react'
+// 1. REOWN APPKIT IMPORTS
+import { createAppKit, useAppKit } from '@reown/appkit/react'
+import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
+import { taiko } from '@reown/appkit/networks'
 import { WagmiProvider, useAccount } from 'wagmi'
-import { taiko as taikoChain } from 'viem/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // Browser polyfill
@@ -22,49 +23,38 @@ const projectId = import.meta.env.VITE_WALLET_CONNECT;
 const metadata = {
   name: 'The Egg Exchange',
   description: 'The Egg Exchange',
-  url: 'https://jacksonville-homestead.netlify.app/',
+  url: typeof window !== 'undefined' ? window.location.origin : 'https://jacksonville-homestead.netlify.app',
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 }
 
-const taiko = {
-  ...taikoChain,
-  rpcUrls: {
-    default: { http: ['https://rpc.mainnet.taiko.xyz'] },
-      public: { http: ['https://rpc.mainnet.taiko.xyz'] },
-  },
-}
+const networks = [taiko]
 
-const chains = [taiko]
-
-// CLEAN CONFIG: No 'createStorage' variables to cause white screens
-const wagmiConfig = defaultWagmiConfig({
-  chains,
+// 3. SET UP THE ADAPTER & QUERY CLIENT
+// We define these outside the component to prevent re-renders
+const wagmiAdapter = new WagmiAdapter({
   projectId,
-  metadata,
-  ssr: true,
-  reconnectOnMount: true,
-  // This helps AppKit components stay in sync with the provider
-  multiInjectedProviderDiscovery: true,
+  networks,
+  ssr: true
 })
 
 const queryClient = new QueryClient()
 
-// 4. Initialize Modal
-createWeb3Modal({
-  wagmiConfig,
+// 4. INITIALIZE REOWN APPKIT
+createAppKit({
+  adapters: [wagmiAdapter],
+  networks,
   projectId,
-  queryClient,
-  enableAnalytics: false,
-  defaultChain: taiko,
-    // This forces the modal to show the Taiko logo/balance specifically
-    chainImages: {
-      167000: 'https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/logo.png'
-    },
-    themeMode: 'light',
-    themeVariables: {
-      '--w3m-accent': '#fcd34d',
-      '--w3m-border-radius-master': '20px',
-    }
+  metadata,
+  features: {
+    analytics: false,
+    email: false,
+    socials: false,
+  },
+  themeMode: 'light',
+  themeVariables: {
+    '--w3m-accent': '#fcd34d',
+    '--w3m-border-radius-master': '20px',
+  }
 })
 
 function AppContent() {
@@ -72,7 +62,9 @@ function AppContent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const { open } = useWeb3Modal();
+  // Hook from Reown
+  const { open } = useAppKit();
+  // Hook from Wagmi
   const { address, isConnected } = useAccount();
 
   useEffect(() => {
@@ -85,6 +77,7 @@ function AppContent() {
     setIsMenuOpen(false);
   };
 
+  // Guard against SSR hydration mismatch
   if (!mounted) return null;
 
   const formatAddress = (addr) => {
@@ -147,7 +140,7 @@ function AppContent() {
     </div>
     </nav>
 
-    {/* Mobile Menu Overlay with Carbon Fibre */}
+    {/* Mobile Menu Overlay */}
     <div className={`md:hidden fixed inset-0 z-50 transform ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 ease-in-out`}>
     <div className="absolute inset-0 bg-homestead-header opacity-95" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/carbon-fibre.png')" }}></div>
     <div className="relative flex flex-col items-center justify-center h-full gap-8 text-2xl font-black uppercase tracking-widest text-white">
@@ -199,7 +192,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <WagmiProvider config={wagmiConfig}>
+    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
     <QueryClientProvider client={queryClient}>
     <AppContent />
     </QueryClientProvider>
