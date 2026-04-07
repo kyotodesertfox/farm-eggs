@@ -12,11 +12,6 @@ import { taiko } from '@reown/appkit/networks'
 import { WagmiProvider, useAccount } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// Browser polyfill
-if (typeof window !== 'undefined') {
-  window.Browser = { T: () => { } };
-}
-
 // 2. Configuration
 const projectId = import.meta.env.VITE_WALLET_CONNECT;
 
@@ -29,11 +24,9 @@ const metadata = {
 
 const networks = [taiko]
 
-// 3. SET UP THE ADAPTER & QUERY CLIENT
-// We define these outside the component to prevent re-renders
-const wagmiAdapter = new WagmiAdapter({
+export const wagmiAdapter = new WagmiAdapter({
   projectId,
-  networks,
+  networks, // Added here
   ssr: true
 })
 
@@ -45,6 +38,7 @@ createAppKit({
   networks,
   projectId,
   metadata,
+  defaultNetwork: taiko,
   features: {
     analytics: false,
     email: false,
