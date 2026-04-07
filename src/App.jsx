@@ -39,10 +39,12 @@ createAppKit({
   projectId,
   metadata,
   defaultNetwork: taiko,
+  allowUnsupportedChain: false,
   features: {
     analytics: false,
     email: false,
     socials: false,
+    swaps: false,
   },
   themeMode: 'light',
   themeVariables: {
