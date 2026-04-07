@@ -67,8 +67,8 @@ export default function Trade({ setActiveTab }) {
         Egg <span className="text-egg-yolk underline decoration-stone-200">Exchange</span>
         </h2>
         <div className="text-xl md:text-2xl text-stone-700 font-medium leading-relaxed mx-auto max-w-2xl">
-        Access my homestead economy. Secure your position with $EGG or exit back to the marketplace.
-        <div className="mt-12">
+        Access my homestead economy. Secure positions with $EGG for local yield or exit the community into the marketplace
+        <div className="mt-6">
         <button onClick={() => setActiveTab('bridge')} className="text-egg-yolk font-black text-xl hover:underline">
         Need $ETH →
         </button>
@@ -141,12 +141,6 @@ export default function Trade({ setActiveTab }) {
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${targetToken === 'ETH' ? 'bg-egg-yolk text-homestead-header shadow-lg' : 'text-stone-500 hover:text-white'}`}
             >
             ETH
-            </button>
-            <button
-            onClick={() => setTargetToken('TAIKO')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${targetToken === 'TAIKO' ? 'bg-egg-yolk text-homestead-header shadow-lg' : 'text-stone-500 hover:text-white'}`}
-            >
-            TAIKO
             </button>
             </div>
         ) : (
