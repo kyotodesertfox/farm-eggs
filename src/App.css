@@ -1,3 +1,16 @@
+:root {
+  /* 16px is the standard (100%).
+   *    Setting this to 13px or 14px scales the whole project down ~20%. */
+  font-size: 14.5px;
+}
+
+/* Optional: If you find specific headers are still too big,
+ *  you can add a global 'Empire' cap here */
+h1, h2, h3 {
+  letter-spacing: -0.02em; /* Tighter tracking looks better at smaller scales */
+}
+
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;
