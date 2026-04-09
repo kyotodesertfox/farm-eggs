@@ -22,7 +22,36 @@ const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 }
 
-const networks = [taiko]
+const taikoMainnet = {
+  id: 167000,
+  name: 'Taiko Mainnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.mainnet.taiko.xyz'] },
+      public: { http: ['https://rpc.mainnet.taiko.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'Taikoscan', url: 'https://taikoscan.io' },
+  },
+  testnet: false
+}
+
+const hoodi = {
+  id: 167013,
+  name: 'Taiko Hoodi',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.hoodi.taiko.xyz'] },
+      public: { http: ['https://rpc.hoodi.taiko.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'Taikoscan', url: 'https://hoodi.taikoscan.io' },
+  },
+  testnet: true
+}
+
+//const networks = [taiko]
+const networks = [ taikoMainnet, hoodi ]
 
 export const wagmiAdapter = new WagmiAdapter({
   projectId,

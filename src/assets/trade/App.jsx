@@ -1,60 +1,71 @@
 import React, { useState, useEffect } from 'react';
-import { useAccount, useBalance } from 'wagmi';
-import { useAppKit } from '@reown/appkit/react'; // 1. UPDATED IMPORT
-import { formatUnits } from 'viem';
+import { useAccount, useBalance, useChainId } from 'wagmi';
+import { useAppKit } from '@reown/appkit/react';
+import { formatUnits, parseUnits } from 'viem';
 
-// TODO: Replace with your actual $EGG token address
-const EGG_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';
+const EGG_MAINNET_ADDRESS = '0x69F97203BaE2F60bf19322EDf339d40e80a6270A';
+const EGG_CHAIN_ID = 167000;
+const HOODI_CHAIN_ID = 167013;
 
 export default function Trade({ setActiveTab }) {
-    const { isConnected, address } = useAccount();
-    const { open } = useAppKit(); // 2. UPDATED HOOK
+    const currentChainId = useChainId();
+    const { address, isConnected, chain } = useAccount();
+    const { open } = useAppKit();
 
     const [amount, setAmount] = useState('');
-    const [targetToken, setTargetToken] = useState('ETH');
     const [isSwapped, setIsSwapped] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => { setMounted(true); }, []);
 
-    // Fetch Native ETH Balance (Taiko)
     const { data: ethBalance } = useBalance({
         address,
-        chainId: 167000,
+        chainId: currentChainId,
+        query: { enabled: !!address, refetchInterval: 5000 }
     });
 
-    // Fetch $EGG Token Balance (Taiko)
     const { data: eggBalance } = useBalance({
         address,
-        token: EGG_TOKEN_ADDRESS !== '0x0000000000000000000000000000000000000000' ? EGG_TOKEN_ADDRESS : undefined,
-        chainId: 167000,
+        token: EGG_MAINNET_ADDRESS,
+        chainId: currentChainId,
+        query: { enabled: !!address && !!EGG_MAINNET_ADDRESS }
     });
 
-    const displayBalance = () => {
-        if (!mounted || !isConnected || !address) return '0.00';
+    // --- CALCULATIONS ---
+    const LP_FEE_PCT = 0.003; // 0.3%
+    const SLIPPAGE_PCT = 0.005; // 0.5%
 
+    // Simple simulation logic for UI demonstration
+    const inputNum = parseFloat(amount) || 0;
+    const simulatedPrice = 0.025; // Example: 1 EGG = 0.025 ETH
+    const rawReceive = isSwapped ? inputNum / simulatedPrice : inputNum * simulatedPrice;
+
+    const lpFee = rawReceive * LP_FEE_PCT;
+    const finalReceive = rawReceive - lpFee;
+    const minReceived = finalReceive * (1 - SLIPPAGE_PCT);
+    const priceImpact = inputNum > 10 ? (inputNum * 0.01).toFixed(2) : "0.01";
+
+    const handlePercentage = (pct) => {
         const currentBalance = isSwapped ? ethBalance : eggBalance;
-
-        // Special Guard for the EGG placeholder
-        if (!isSwapped && EGG_TOKEN_ADDRESS === '0x0000000000000000000000000000000000000000') {
-            return '0.00';
-        }
-
-        if (!currentBalance || !currentBalance.value) return '0.00';
-
-        try {
-            const formatted = formatUnits(currentBalance.value, currentBalance.decimals);
-            const value = parseFloat(formatted);
-            return value === 0 ? '0.00' : value.toFixed(isSwapped ? 4 : 2);
-        } catch (e) {
-            return '0.00';
-        }
+        if (!currentBalance || !currentBalance.value) return;
+        const bigPct = BigInt(Math.floor(pct * 100));
+        const finalValue = (currentBalance.value * bigPct) / 10000n;
+        setAmount(formatUnits(finalValue, currentBalance.decimals));
     };
 
-    const handleSwapDirection = () => {
-        setIsSwapped(!isSwapped);
-        setAmount('');
+    const getTopDisplay = () => {
+        if (!isConnected || !mounted) return { label: 'Balance: 0.00', symbol: '$EGG' };
+        const currentData = isSwapped ? ethBalance : eggBalance;
+        const val = currentData ? parseFloat(formatUnits(currentData.value, currentData.decimals)) : 0;
+        return {
+            label: `Balance: ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: isSwapped ? 6 : 2 })}`,
+            symbol: isSwapped ? 'ETH' : '$EGG'
+        };
     };
+
+    const topDisplay = getTopDisplay();
+    const networkName = chain?.name || (currentChainId === HOODI_CHAIN_ID ? 'Taiko Hoodi' : 'Taiko');
+    const statusColor = currentChainId === EGG_CHAIN_ID ? 'bg-emerald-500' : 'bg-amber-400';
 
     if (!mounted) return null;
 
@@ -62,125 +73,101 @@ export default function Trade({ setActiveTab }) {
         <section className="w-full max-w-5xl px-8 py-20 animate-in fade-in duration-700">
         <div className="bg-white border-b-8 border-r-8 border-stone-200 rounded-[3rem] p-8 md:p-16 shadow-2xl text-center">
 
-        <header className="mb-16 border-b border-stone-100 pb-10">
-        <h2 className="text-5xl md:text-6xl font-serif font-black text-homestead-header mb-6 italic">
+        <header className="mb-12 border-b border-stone-100 pb-10">
+        <h2 className="text-5xl md:text-6xl font-serif font-black text-homestead-header mb-4 italic">
         Egg <span className="text-egg-yolk underline decoration-stone-200">Exchange</span>
         </h2>
-        <div className="text-xl md:text-2xl text-stone-700 font-medium leading-relaxed mx-auto max-w-2xl">
-        Access my homestead economy. Secure positions with $EGG for local yield or exit the community into the marketplace
-        <div className="mt-6">
-        <button onClick={() => setActiveTab('bridge')} className="text-egg-yolk font-black text-xl hover:underline">
-        Need $ETH →
-        </button>
-        </div>
-        </div>
         </header>
 
         <div className="max-w-xl mx-auto">
-        <div
-        className="relative rounded-[3rem] p-6 border-4 border-[#D9A06F] shadow-2xl bg-homestead-header overflow-hidden"
-        style={{
-            backgroundImage: `url('https://www.transparenttextures.com/patterns/carbon-fibre.png')`,
-            backgroundBlendMode: 'overlay'
-        }}
-        >
-        <div className="flex flex-col gap-4">
+        <div className="relative rounded-[3rem] p-6 border-4 border-[#D9A06F] shadow-2xl bg-homestead-header overflow-hidden"
+        style={{ backgroundImage: `url('https://www.transparenttextures.com/patterns/carbon-fibre.png')`, backgroundBlendMode: 'overlay' }}>
 
-        {/* TOP BLOCK (Sell) */}
-        <div className="bg-black/40 border border-white/10 p-5 rounded-2xl text-left transition-all">
+        <div className="flex flex-col gap-4">
+        {/* YOU SELL */}
+        <div className="bg-black/40 border border-white/10 p-5 rounded-2xl text-left">
         <div className="flex justify-between items-center mb-3">
         <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">You Sell</span>
-        <span className="text-[10px] font-black uppercase tracking-widest text-egg-yolk">
-        Balance: {displayBalance()}
-        </span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-egg-yolk">{topDisplay.label}</span>
         </div>
-        <div className="flex justify-between items-center gap-4">
-        <input
-        type="number"
-        placeholder="0.0"
-        className="bg-transparent text-3xl font-black text-white outline-none w-full"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        />
-        {!isSwapped ? (
-            <div className="bg-stone-800 px-4 py-2 rounded-xl flex items-center gap-2 border border-white/10 shadow-lg shrink-0">
-            <div className="w-5 h-5 rounded-full bg-egg-yolk shadow-[0_0_10px_#fcd34d]" />
-            <span className="font-black text-white text-sm">$EGG</span>
-            </div>
-        ) : (
-            <div className="bg-stone-800 px-4 py-2 rounded-xl flex items-center gap-2 border border-white/10 shadow-lg shrink-0">
-            <span className="font-black text-white text-sm">{targetToken}</span>
-            </div>
-        )}
+        <div className="flex justify-between items-center gap-4 mb-4">
+        <input type="number" placeholder="0.0" className="bg-transparent text-3xl font-black text-white outline-none w-full"
+        value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <div className="bg-stone-800 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+        {!isSwapped && <div className="w-4 h-4 rounded-full bg-egg-yolk shadow-[0_0_8px_#fcd34d]" />}
+        <span className="font-black text-white text-xs">{topDisplay.symbol}</span>
+        </div>
+        </div>
+        <div className="flex justify-between gap-2">
+        {[25, 50, 75, 100].map((pct) => (
+            <button key={pct} onClick={() => handlePercentage(pct)} className="flex-1 bg-white/5 hover:bg-white/10 text-[9px] font-black text-stone-400 py-1.5 rounded-lg border border-white/5 transition-all uppercase">
+            {pct === 100 ? 'Max' : `${pct}%`}
+            </button>
+        ))}
         </div>
         </div>
 
-        {/* SWAP BUTTON */}
         <div className="flex justify-center -my-6 z-10">
-        <button
-        onClick={handleSwapDirection}
-        className="bg-homestead-header border-2 border-[#D9A06F] p-2 rounded-full text-egg-yolk shadow-xl hover:scale-110 active:rotate-180 transition-all duration-300"
-        >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 5v14M19 12l-7 7-7-7" />
-        </svg>
+        <button onClick={() => { setIsSwapped(!isSwapped); setAmount(''); }} className="bg-homestead-header border-2 border-[#D9A06F] p-2 rounded-full text-egg-yolk shadow-xl hover:rotate-180 transition-all duration-500">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7" /></svg>
         </button>
         </div>
 
-        {/* BOTTOM BLOCK (Receive) */}
-        <div className="bg-black/40 border border-white/10 p-5 rounded-2xl text-left transition-all">
+        {/* YOU RECEIVE */}
+        <div className="bg-black/40 border border-white/10 p-5 rounded-2xl text-left">
         <div className="flex justify-between items-center mb-3">
         <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">You Receive</span>
         </div>
         <div className="flex justify-between items-center gap-4">
-        <div className="text-3xl font-black text-stone-500">0.00</div>
-        {!isSwapped ? (
-            <div className="flex gap-1 bg-stone-900 p-1 rounded-xl border border-white/5">
-            <button
-            onClick={() => setTargetToken('ETH')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${targetToken === 'ETH' ? 'bg-egg-yolk text-homestead-header shadow-lg' : 'text-stone-500 hover:text-white'}`}
-            >
-            ETH
-            </button>
-            </div>
-        ) : (
-            <div className="bg-stone-800 px-4 py-2 rounded-xl flex items-center gap-2 border border-white/10 shadow-lg shrink-0">
-            <div className="w-5 h-5 rounded-full bg-egg-yolk shadow-[0_0_10px_#fcd34d]" />
-            <span className="font-black text-white text-sm">$EGG</span>
-            </div>
-        )}
+        <div className="text-3xl font-black text-white">{inputNum > 0 ? finalReceive.toFixed(isSwapped ? 2 : 4) : "0.00"}</div>
+        <div className="bg-stone-800 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+        {isSwapped && <div className="w-4 h-4 rounded-full bg-egg-yolk shadow-[0_0_8px_#fcd34d]" />}
+        <span className="font-black text-white text-xs">{isSwapped ? '$EGG' : 'ETH'}</span>
+        </div>
         </div>
         </div>
 
-        {/* ACTION BUTTON */}
+        {/* EXTRA DETAILS BOX */}
+        {inputNum > 0 && (
+            <div className="bg-black/20 rounded-2xl p-4 text-[10px] font-black uppercase tracking-widest text-stone-400 flex flex-col gap-2 border border-white/5">
+            <div className="flex justify-between">
+            <span>Price Impact</span>
+            <span className={parseFloat(priceImpact) > 2 ? "text-rose-500" : "text-emerald-500"}>{priceImpact}%</span>
+            </div>
+            <div className="flex justify-between">
+            <span>Liquidity Provider Fee</span>
+            <span className="text-white">{lpFee.toFixed(6)} {isSwapped ? '$EGG' : 'ETH'}</span>
+            </div>
+            <div className="flex justify-between border-t border-white/5 pt-2">
+            <span>Minimum Received</span>
+            <span className="text-white">{minReceived.toFixed(4)} {isSwapped ? '$EGG' : 'ETH'}</span>
+            </div>
+            </div>
+        )}
+
         {isConnected ? (
-            <button className="w-full mt-4 bg-egg-yolk hover:bg-amber-400 text-homestead-header font-black py-5 rounded-2xl transition-all shadow-xl active:scale-[0.98] uppercase tracking-widest text-sm">
-            {isSwapped ? `Buy $EGG with ${targetToken}` : `Swap $EGG for ${targetToken}`}
+            <button className="w-full mt-2 bg-egg-yolk hover:bg-amber-400 text-homestead-header font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-sm transition-all active:scale-95">
+            {isSwapped ? `Buy $EGG` : `Swap $EGG`}
             </button>
         ) : (
-            <button
-            onClick={() => open()}
-            className="w-full mt-4 bg-stone-800 hover:bg-stone-700 text-white font-black py-5 rounded-2xl transition-all shadow-xl active:scale-[0.98] uppercase tracking-widest text-sm"
-            >
-            Connect Wallet to Swap
+            <button onClick={() => open()} className="w-full mt-2 bg-stone-800 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-sm">
+            Connect Wallet
             </button>
         )}
+
+        <div className="mt-2 flex items-center justify-center gap-2">
+        <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${statusColor}`} />
+        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">{networkName}</span>
+        </div>
         </div>
         </div>
         </div>
 
-        <div className="max-w-xl mx-auto mt-16 bg-stone-50 border border-stone-100 p-8 rounded-[2.5rem] text-left">
-        <div className="flex gap-5">
-        <div className="bg-egg-yolk/10 text-egg-yolk rounded-full w-10 h-10 flex items-center justify-center font-black border border-egg-yolk/20 shadow-sm">!</div>
-        <div>
-        <h4 className="text-homestead-header uppercase text-[10px] font-black tracking-[0.2em] mb-2">Homestead Liquidity Protocol</h4>
-        <p className="text-stone-500 text-sm leading-relaxed font-bold">
-        The $EGG economy is a private homestead ecosystem. This interface interacts directly with our automated liquidity pools on the Taiko network.
+        <footer className="max-w-xl mx-auto mt-16 bg-stone-50 border border-stone-100 p-8 rounded-[2.5rem] text-left font-bold">
+        <p className="text-stone-500 text-xs leading-relaxed">
+        The $EGG economy utilizes an <span className="text-homestead-header underline">Automated Market Maker</span> on {networkName}. Slippage is set to 0.5% to ensure transaction stability during high volatility.
         </p>
-        </div>
-        </div>
-        </div>
-
+        </footer>
         </div>
         </section>
     );
